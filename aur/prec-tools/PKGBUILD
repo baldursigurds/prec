@@ -1,0 +1,85 @@
+# Maintainer: Baldur Sigurðsson <baldursigurds@gmail.com>
+#
+# Builds from the PREC project checkout this file lives in (aur/prec-tools/
+# inside it): there is no download, the files are taken from "$startdir/../..".
+# Build and install with:  cd aur/prec-tools && makepkg -si
+
+pkgname=prec-tools
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="PREC: Polar H10 logging with a Feather nRF52840, Bangle.js 2 apps, merging with Garmin .fit files and speed model training"
+arch=('any')
+license=('MIT')
+depends=(
+  'python'
+  'python-numpy'
+  'python-pyserial'
+  'python-bleak'
+  'bluez'
+)
+optdepends=(
+  'python-fitparse: reading Garmin .fit files (F3 data tab, AUR)'
+  'python-scipy: window functions for training'
+  'python-matplotlib: plot and map windows (F3)'
+  'python-pyqt6: window backend for matplotlib'
+  'python-pillow: map tiles and icons'
+  'python-requests: downloading map tiles'
+  'python-tensorflow: training models (F4)'
+  'python-keras: training models (F4)'
+  'arm-none-eabi-gcc: compiling the watch feature code (F4 export)'
+  'gcc: checking exported models on this computer'
+  'arduino-cli: building and flashing the feather firmware (needs the adafruit:nrf52 core)'
+)
+source=()
+
+_root="$startdir/../.."
+_lib="usr/lib/$pkgname"
+
+pkgver() {
+  sed -n 's/^#define PREC_FW_VERSION *"\(.*\)"/\1/p' "$_root/firmware/prec_logger/prec.h"
+}
+
+check() {
+  cd "$_root/tools"
+  for f in *.py prec_arch/*.py prec_class/*.py; do
+    python -m py_compile "$f"
+  done
+  rm -rf __pycache__ prec_arch/__pycache__ prec_class/__pycache__
+}
+
+package() {
+  cd "$_root"
+
+  # the tools keep the project layout: tools/, firmware/, bangle/ side by side
+  install -Dm644 -t "$pkgdir/$_lib/tools" tools/*.py
+  install -Dm644 -t "$pkgdir/$_lib/tools/prec_arch" tools/prec_arch/*.py
+  install -Dm644 -t "$pkgdir/$_lib/tools/prec_class" tools/prec_class/*.py
+  install -Dm644 -t "$pkgdir/$_lib/firmware/prec_logger" \
+    firmware/prec_logger/*.ino firmware/prec_logger/*.cpp firmware/prec_logger/prec.h \
+    firmware/prec_logger/model_engine.h
+  # ship the firmware without a built-in model (F4 > Build model into feather adds one)
+  printf '/* model_data.h: no speed model in this firmware (prec_train.py feather none). */\n#define MODEL_PRESENT 0\n' \
+    > "$pkgdir/$_lib/firmware/prec_logger/model_data.h"
+  for app in prec; do
+    install -Dm644 -t "$pkgdir/$_lib/bangle/$app" bangle/$app/*
+  done
+  python -m compileall -q -d "/$_lib/tools" "$pkgdir/$_lib/tools"
+
+  # commands
+  local cmd
+  for cmd in tui cmd decode merge gui train bangle; do
+    install -Dm755 /dev/stdin "$pkgdir/usr/bin/prec-$cmd" <<EOF
+#!/bin/sh
+exec python /$_lib/tools/prec_$cmd.py "\$@"
+EOF
+  done
+  install -Dm755 /dev/stdin "$pkgdir/usr/bin/prec-bangle-repl" <<EOF
+#!/bin/sh
+exec python /$_lib/tools/bangle_repl.py "\$@"
+EOF
+
+  # documentation
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" docs/*.md
+}

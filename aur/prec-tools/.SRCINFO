@@ -1,0 +1,24 @@
+pkgbase = prec-tools
+	pkgdesc = PREC: Polar H10 logging with a Feather nRF52840, Bangle.js 2 apps, merging with Garmin .fit files and speed model training
+	pkgver = 1.0.0
+	pkgrel = 1
+	arch = any
+	license = LicenseRef-PREC
+	depends = python
+	depends = python-numpy
+	depends = python-pyserial
+	depends = python-bleak
+	depends = bluez
+	optdepends = python-fitparse: reading Garmin .fit files (F3 data tab, AUR)
+	optdepends = python-scipy: window functions for training
+	optdepends = python-matplotlib: plot and map windows (F3)
+	optdepends = python-pyqt6: window backend for matplotlib
+	optdepends = python-pillow: map tiles and icons
+	optdepends = python-requests: downloading map tiles
+	optdepends = python-tensorflow: training models (F4)
+	optdepends = python-keras: training models (F4)
+	optdepends = arm-none-eabi-gcc: compiling the watch feature code (F4 export)
+	optdepends = gcc: checking exported models on this computer
+	optdepends = arduino-cli: building and flashing the feather firmware (needs the adafruit:nrf52 core)
+
+pkgname = prec-tools

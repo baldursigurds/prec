@@ -1,0 +1,45 @@
+{
+  "id": "prec",
+  "name": "PREC",
+  "shortName": "PREC",
+  "version": "0.04",
+  "description": "Running speed, class (run, walk, still, stretch), heart rate, cadence and distance from the Polar H10 accelerometer, computed on the watch with models trained by the PREC tools or read from the PREC feather logger, which it also controls. Can record the Polar data, heart rate and cadence.",
+  "icon": "app.png",
+  "type": "app",
+  "tags": "health,tool,bluetooth",
+  "supports": [
+    "BANGLEJS2"
+  ],
+  "readme": "README.md",
+  "storage": [
+    {
+      "name": "prec",
+      "url": "lib.js"
+    },
+    {
+      "name": "precpol",
+      "url": "polar.js"
+    },
+    {
+      "name": "prec.app.js",
+      "url": "app.js"
+    },
+    {
+      "name": "prec.settings.js",
+      "url": "settings.js"
+    },
+    {
+      "name": "prec.img",
+      "url": "app-icon.js",
+      "evaluate": true
+    }
+  ],
+  "data": [
+    {
+      "name": "prec.json"
+    },
+    {
+      "wildcard": "prm_*"
+    }
+  ]
+}

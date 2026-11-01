@@ -1,0 +1,7 @@
+0.01: First release
+0.02: monitor: speed units, class from the feather's classifier, distance
+0.03: merged with ppred: the Polar H10 read directly (models, recording),
+      one data screen for the Polar and the feather, cadence, heart rate and
+      cadence logging, model and Polar menus in Settings, new icon
+0.04: cadence filter, new icon, data screen: wider class rectangle, unit as a
+      fraction, heart rate, distance, time and cadence in a 2 x 2 grid
