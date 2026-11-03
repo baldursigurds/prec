@@ -309,22 +309,28 @@ pair* form (below). Its window works differently from the speed one:
 
 * **Whole recording.** It runs over the pair's whole recording, read from
   the `.prc`. Still and stretch may lie outside the GPS span.
-* **Top:** acceleration, and the speed where there is GPS.
-* **Bottom: one band per row, sharing the time axis.**
-  * The top row is the **actual** class intervals, drawn in the class
-    colours.
-  * Under it is the **predicted** class of every window.
-  * Each **low-pass** filter in the form adds a row. The class
-    probabilities are each smoothed with that time constant before the most
+* **Top:** acceleration, and the speed where there is GPS, kept low.
+* **Below it, sharing the time axis:**
+  * **actual**: the class intervals as a band in the class colours (run
+    green, walk amber, still red, stretch purple);
+  * **predicted**: a pair of graphs, the most likely class of every window
+    as a band, and under it the classifier's output, the four class
+    probabilities (they add up to 1) as lines in the class colours;
+  * **low-pass** filters: each one in the form adds such a pair. The
+    probabilities are each smoothed with that time constant, then the most
     likely class is taken.
-  * Every predicted row gives its accuracy over the windows that lie in a
-    class interval.
+
+  Every band gives its accuracy over the windows that lie in a class
+  interval. The probabilities show how sure the model is and where two
+  classes compete. The window grows with the number of filters.
 * **Right:** the confusion matrix of those windows: rows actual, columns
   predicted, shaded by the share of the row.
 * **Results.** The `predict:` lines (accuracy, and accuracy per low-pass)
   appear in F5 as for speed models.
 * **Function.** `classify_pair(conf, model, pair, shift=None, lowpass=())`
-  in `prec_train.py`.
+  in `prec_train.py`; it returns the raw probabilities (`prob`) and, per
+  time constant, the smoothed ones (`lowpass_prob`) and their classes
+  (`lowpass`).
 
 ## Predict (checking a model on a pair)
 
@@ -364,6 +370,9 @@ The window shows:
   was trained for.
 * **Right: predicted against target.** A scatter plot with the y = x line,
   and MAE, RMSE, bias (mean of prediction − target) and the correlation r.
+  Each dot has the colour of the class interval its window centre lies in
+  (run green, walk amber, still red, stretch purple), or blue outside the
+  class intervals; the legend counts the windows of each.
 
 How it works:
 

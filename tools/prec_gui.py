@@ -382,7 +382,19 @@ class PredictWindow:
                                                           if cls else "", pair_name, r["n"],
                                                        ", every %d-th" % r["step"] if r["step"] > 1 else ""))
         sx = self.fig.add_axes([0.73, 0.1, 0.25, 0.8])
-        sx.scatter(r["target"], r["pred"], s=3, alpha=0.25, color=pc["speed"], lw=0)
+        # each dot in the colour of the class interval holding its window centre, blue outside them
+        label = np.full(len(r["t"]), -1)
+        for k, c in enumerate(M.CLASSES):
+            label[M.in_intervals(r["t"], pair.get(c, []))] = k
+        from matplotlib.lines import Line2D
+        handles = []
+        for k, c in [(-1, "no class")] + list(enumerate(M.CLASSES)):
+            m = label == k
+            if m.any():
+                col = "#1f77b4" if k < 0 else pc[c]
+                sx.scatter(r["target"][m], r["pred"][m], s=3, alpha=0.25, color=col, lw=0)
+                handles.append(Line2D([], [], ls="", marker="o", color=col, label="%s (%d)" % (c, m.sum())))
+        sx.legend(handles=handles, loc="upper left", fontsize=8, markerscale=1.2)
         lo = min(r["target"].min(), r["pred"].min())
         hi = max(r["target"].max(), r["pred"].max())
         sx.plot([lo, hi], [lo, hi], color="black", lw=1)
@@ -417,9 +429,10 @@ def class_runs(t, labels):
 
 class ClassifyWindow:
     """A classifier on a pair's whole recording: acceleration (and speed) on
-    top; below, one band per row: the actual class intervals, the predicted
-    class and, per low-pass time constant, the class after smoothing the
-    probabilities; right, the confusion matrix of the windows with a class."""
+    top, kept low; the actual class intervals as a band; then a pair of
+    graphs for the raw output and for every low-pass time constant: the most
+    likely class (band) and the four class probabilities (adding up to 1) in
+    their class colours; right, the confusion matrix of the windows with a class."""
 
     def __init__(self, plt, conf, model, pair_name, shift=None, lowpass=()):
         import prec_train as T
@@ -432,9 +445,18 @@ class ClassifyWindow:
         for tau in lowpass:
             print("predict: low-pass %g s: accuracy %.3f" % (tau, r["lowpass_accuracy"][tau]), flush=True)
         self.saved = False
-        self.fig = plt.figure(figsize=(15, 8))
+        # left column, top to bottom: acceleration and speed (kept low); the actual
+        # classes (one band); then for the raw output and every low-pass time
+        # constant a pair: the most likely class (band) and the probabilities
+        variants = [("predicted", r["prob"], r["pred"], r["accuracy"])] + [
+            ("low-pass %g s" % tau, r["lowpass_prob"][tau], r["lowpass"][tau], r["lowpass_accuracy"][tau])
+            for tau in lowpass]
+        ratios = [3.2, 0.55] + [0.55, 1.6] * len(variants)
+        self.fig = plt.figure(figsize=(15, min(13.5, 4.2 + 2.0 * len(variants))))
         self.fig.canvas.manager.set_window_title("PREC classify - %s on %s" % (model, pair_name))
-        ax = self.fig.add_axes([0.11, 0.5, 0.57, 0.42])
+        gs = self.fig.add_gridspec(len(ratios), 1, height_ratios=ratios, left=0.11, right=0.68, top=0.94,
+                                   bottom=0.09, hspace=0.25)
+        ax = self.fig.add_subplot(gs[0])
         arr = M.load_cooked(conf, pair)
         k = int(max(1, pc["decimate"]))
         st, ss = (arr[::k, 0], arr[::k, 4]) if arr is not None else (np.zeros(0), np.zeros(0))
@@ -442,28 +464,37 @@ class ClassifyWindow:
         ax.set_xlabel("")
         ax.set_title("%s (%s classifier) on %s  ·  %d windows%s" % (
             model, r["arch"], pair_name, r["n"], ", every %d-th" % r["step"] if r["step"] > 1 else ""))
-        bx = self.fig.add_axes([0.11, 0.1, 0.57, 0.34], sharex=ax)
-        rows = [("actual", [(a, b, i) for i, c in enumerate(classes) for a, b in pair.get(c, [])])]
-        rows.append(("predicted (%.0f%%)" % (100 * r["accuracy"]), class_runs(r["t"], r["pred"])))
-        for tau in lowpass:
-            rows.append(("low-pass %g s (%.0f%%)" % (tau, 100 * r["lowpass_accuracy"][tau]),
-                         class_runs(r["t"], r["lowpass"][tau])))
-        n = len(rows)
-        for j, (label, runs) in enumerate(rows):
-            y = n - 1 - j
+        axes = [ax]
+
+        def band(where, runs, label):
+            bx = self.fig.add_subplot(where, sharex=ax)
             for i in range(len(classes)):
                 spans = [(a, b - a) for a, b, kk in runs if kk == i]
                 if spans:
-                    bx.broken_barh(spans, (y - 0.4, 0.8), color=colors[i], lw=0)
-            if j == 0:
-                bx.axhline(y - 0.5, color="black", lw=1)
-        bx.set_yticks(range(n), [label for label, _ in reversed(rows)])
-        bx.set_ylim(-0.6, n - 0.4)
-        bx.set_xlim(min(r["acc_t"][0], r["t"][0]), max(r["acc_t"][-1], r["t"][-1]))
-        bx.set_xlabel("time since .fit start (s)")
+                    bx.broken_barh(spans, (0, 1), color=colors[i], lw=0)
+            bx.set_ylim(0, 1)
+            bx.set_yticks([0.5], [label])
+            axes.append(bx)
+            return bx
+
+        band(gs[1], [(a, b, i) for i, c in enumerate(classes) for a, b in pair.get(c, [])], "actual")
+        for j, (label, prob, pred, acc) in enumerate(variants):
+            band(gs[2 + 2 * j], class_runs(r["t"], pred), "%s (%.0f%%)" % (label, 100 * acc))
+            px = self.fig.add_subplot(gs[3 + 2 * j], sharex=ax)
+            for i in range(len(classes)):             # the classifier's output: they add up to 1
+                px.plot(r["t"], prob[:, i], color=colors[i], lw=0.8)
+            px.set_ylim(-0.03, 1.03)
+            px.set_yticks([0, 0.5, 1])
+            px.set_ylabel("probability", fontsize=8)
+            px.grid(alpha=0.3)
+            axes.append(px)
+        for a in axes[:-1]:
+            a.tick_params(labelbottom=False)
+        axes[-1].set_xlim(min(r["acc_t"][0], r["t"][0]), max(r["acc_t"][-1], r["t"][-1]))
+        axes[-1].set_xlabel("time since .fit start (s)")
         from matplotlib.patches import Patch
-        bx.legend(handles=[Patch(color=col, label=c) for c, col in zip(classes, colors)], loc="upper center",
-                  bbox_to_anchor=(0.5, -0.18), ncol=len(classes), fontsize=9, frameon=False)
+        self.fig.legend(handles=[Patch(color=col, label=c) for c, col in zip(classes, colors)], loc="lower center",
+                        bbox_to_anchor=(0.395, 0.0), ncol=len(classes), fontsize=9, frameon=False)
         # confusion matrix: rows the actual class, columns the predicted one; colour = share of the row
         cx = self.fig.add_axes([0.77, 0.2, 0.21, 0.6])
         cm = r["confusion"]

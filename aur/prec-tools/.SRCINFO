@@ -1,6 +1,6 @@
 pkgbase = prec-tools
 	pkgdesc = PREC: Polar H10 logging with a Feather nRF52840, Bangle.js 2 apps, merging with Garmin .fit files and speed model training
-	pkgver = 1.0.0
+	pkgver = 1.1.0
 	pkgrel = 1
 	arch = any
 	license = LicenseRef-PREC

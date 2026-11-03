@@ -1050,7 +1050,8 @@ def classify_pair(conf, name, pair_name, max_windows=20000, batch=2048, shift=No
     {"t" (window centres, s since the .fit start), "prob" (n, classes),
     "pred" (class index), "actual" (class index of the interval holding the
     window centre, -1 for none), "lowpass": {tau: predicted class index after
-    smoothing the probabilities}, "accuracy" (over windows with a class),
+    smoothing the probabilities}, "lowpass_prob": {tau: (n, classes) smoothed
+    probabilities}, "accuracy" (over windows with a class),
     "confusion", "classes", "n", "step", "acc_t", "acc" (the recording, for
     plotting), "model", "pair", "arch"}."""
     import keras
@@ -1084,12 +1085,13 @@ def classify_pair(conf, name, pair_name, max_windows=20000, batch=2048, shift=No
         actual[M.in_intervals(t, pair.get(c, []))] = k
     known = actual >= 0
     pred = prob.argmax(axis=1)
-    smooth = {tau: np.column_stack([lowpass_(t, prob[:, k], tau) for k in range(prob.shape[1])]).argmax(axis=1)
-              for tau in lowpass}
+    smooth_prob = {tau: np.column_stack([lowpass_(t, prob[:, k], tau) for k in range(prob.shape[1])])
+                   for tau in lowpass}
+    smooth = {tau: p.argmax(axis=1) for tau, p in smooth_prob.items()}
 
     def score(p):
         return float((p[known] == actual[known]).mean()) if known.any() else float("nan")
-    return {"t": t, "prob": prob, "pred": pred, "actual": actual, "lowpass": smooth,
+    return {"t": t, "prob": prob, "pred": pred, "actual": actual, "lowpass": smooth, "lowpass_prob": smooth_prob,
             "accuracy": score(pred), "lowpass_accuracy": {tau: score(p) for tau, p in smooth.items()},
             "confusion": confusion(actual[known], pred[known], len(classes)) if known.any() else None,
             "classes": classes, "n": len(t), "step": step, "acc_t": t_all, "acc": acc["acc"],

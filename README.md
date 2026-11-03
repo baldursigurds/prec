@@ -137,6 +137,11 @@ these commands:
   `makepkg --printsrcinfo > .SRCINFO`.
 
 
+## Version and changes
+
+The project version is in [VERSION](VERSION) (now 1.1.0); [CHANGELOG.md](CHANGELOG.md)
+lists the changes of every version.
+
 ## Licence
 
 MIT: anyone may use, copy, modify and distribute this project, also
